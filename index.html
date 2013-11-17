@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Maps with Gamepad</title>
+		    <style>
+				html, body, #map {
+					height: 100%;
+					margin: 0;
+					padding: 0;
+				}
+				
+				#instructions {
+					text-align: center;
+					padding-top: 3em;
+					font-family: segoe ui, helvetica, sans-serif;
+				}
+				
+				#crosshairs {
+					position: fixed;
+					top: 50%;
+					left: 50%;
+					margin: -15px 0 0 -15px;
+					height: 30px;
+					width: 30px;
+					border-collapse: collapse;
+					z-index: 10000;
+				}
+				
+				#crosshairs td {
+					width: 50%;
+				}
+				#crosshairs tr {
+					height: 50%;
+				}
+				#crosshairs td:first-child {
+					border-right: 1px solid #888;
+				}
+				#crosshairs tr:first-child td {
+					border-bottom: 1px solid #888;
+				}
+			</style>
+	</head>
+	<body>
+		<div id="map">
+			<div id="instructions">
+				<strong>This will let you control Google Maps using the two joysticks on your gamepad.</strong><br /><br />
+				Press a button on your gamepad to begin.
+			</div>
+		</div>
+		<table id="crosshairs">
+			<tr><td></td><td></td></tr>
+			<tr><td></td><td></td></tr>
+		</table>
+		
+		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDaLpwTqhZfNkEZIGND6SRAeHTep1OyYTA&amp;sensor=false"></script>
+		<script type="text/javascript">
+			window.onload = function () {
+				if (!navigator.webkitGetGamepads && navigator.userAgent.indexOf('Firefox/') === -1)
+					document.getElementById('instructions').innerHTML = 'Your browser doesn\'t seem to have gamepad support!';
+			
+				var gamepads = [];
+			
+				// Firefox.
+				window.addEventListener('MozGamepadConnected', function (e) {
+					gamepads.push(e.gamepad);
+				}, false);
+				window.addEventListener('MozGamepadDisconnected', function (e) {
+					gamepads = gamepads.filter(function (g) {
+						return g !== e.gamepad;
+					});
+				}, false);
+								
+				function scaleClamp(x, scale, threshold) {
+					return Math.abs(x) < threshold ? 0 : x * scale;
+				}
+				
+				var zoomDiff = 0;
+				var map = null;
+				(function poll() {
+				
+					// Chrome needs us to poll for gamepads.
+					if (navigator.webkitGetGamepads)
+						gamepads = navigator.webkitGetGamepads();
+					
+					// Set up the map when the gamepad is connected.
+					if (gamepads[0]) {
+						if (!map)
+							map = new google.maps.Map(document.getElementById('map'), {
+								zoom: 11,
+								center: new google.maps.LatLng(34.05, -117.95),
+								mapTypeId: google.maps.MapTypeId.ROADMAP
+							});
+							
+						var gamepad = gamepads[0];
+						
+						// Pan speed depends on zoom depth.
+						var scale = map.getZoom() / 30 * 100;
+						map.panBy(scaleClamp(gamepad.axes[0], scale, 0.2), scaleClamp(gamepad.axes[1], scale, 0.2));
+						
+						// setZoom() only takes integers.
+						zoomDiff += scaleClamp(-gamepad.axes[3], 0.7, 0.2);
+						if (Math.abs(zoomDiff) > 1) {
+							map.setZoom(map.getZoom() + Math.round(zoomDiff));
+							zoomDiff = 0;
+						}
+					}
+					
+					setTimeout(poll, 1000 / 24);
+				}());
+			};
+		</script>
+	</body>
+</html>
